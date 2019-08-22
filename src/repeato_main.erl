@@ -16,7 +16,7 @@
 
 -define(SERVER, ?MODULE).
 
--record(state, {last_msg}).
+-record(state, {participants}).
 
 %%%===================================================================
 %%% API
@@ -41,16 +41,43 @@ run_command(ChatId, Text) ->
 %%%===================================================================
 
 init([]) ->
-  {ok, #state{last_msg = []}}.
+  {ok, #state{participants = []}}.
 
+handle_call({command, ChatId, "/join"}, _From, State) ->
+  case [X || X <- State#state.participants, X =:= ChatId] of
+	[] -> 
+	  raboter:send_message(ChatId, "Joined"),
+	  [raboter:send_message(CID, "Someone joined") || CID <- State#state.participants],
+	  {reply, ok, State#state{participants = [ChatId | State#state.participants]}};
+	_ ->
+	  raboter:send_message(ChatId, "Already joined"),
+	  {reply, ok, State}
+  end;
+
+handle_call({command, ChatId, "/leave"}, _From, State) ->
+  case [X || X <- State#state.participants, X =:= ChatId] of
+	[Member] -> 
+	  raboter:send_message(ChatId, "Leaved"),
+	  [raboter:send_message(CID, "Someone leaved") || CID <- State#state.participants, CID =/= ChatId],
+	  {reply, ok, State#state{participants = [CID || CID <- State#state.participants, CID =/= ChatId]}};
+	[] ->
+	  raboter:send_message(ChatId, "Already out of network"),
+	  {reply, ok, State}
+  end;
+  
+handle_call({command, ChatId, [47,109,32|Message]}, _From, State) ->
+  case [X || X <- State#state.participants, X =:= ChatId] of
+	[Member] -> 
+	  [raboter:send_message(CID, "Someone said: " ++ Message) || CID <- State#state.participants],
+	  {reply, ok, State};
+	[] ->
+	  raboter:send_message(ChatId, "You must join to send messages"),
+	  {reply, ok, State}
+  end;
+  
 handle_call({command, ChatId, Text}, _From, State) ->
-  Previous = [Prev || {CID, Prev} <- State#state.last_msg, CID =:= ChatId],
-  Others = [{CID, Prev} || {CID, Prev} <- State#state.last_msg, CID =/= ChatId],
-  case Previous of
-    [] -> raboter:send_message(ChatId, "Understood");
-    [SomeText] -> raboter:send_message(ChatId, "Previous message was " ++ SomeText)
-  end,
-  {reply, ok, State#state{last_msg = [{ChatId, Text} | Others]}};
+  raboter:send_message(ChatId, "Command not understood. Use /join to join the anonymous chat, /leave to leave it, /m <TEXT> to write to everyone"),
+  {reply, ok, State}.
 
 handle_call(_Request, _From, State) ->
   {reply, ok, State}.
