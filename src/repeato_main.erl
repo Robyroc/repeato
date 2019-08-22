@@ -56,7 +56,7 @@ handle_call({command, ChatId, "/join"}, _From, State) ->
 
 handle_call({command, ChatId, "/leave"}, _From, State) ->
   case [X || X <- State#state.participants, X =:= ChatId] of
-	[Member] -> 
+	[_] -> 
 	  raboter:send_message(ChatId, "Leaved"),
 	  [raboter:send_message(CID, "Someone leaved") || CID <- State#state.participants, CID =/= ChatId],
 	  {reply, ok, State#state{participants = [CID || CID <- State#state.participants, CID =/= ChatId]}};
@@ -67,7 +67,7 @@ handle_call({command, ChatId, "/leave"}, _From, State) ->
   
 handle_call({command, ChatId, [47,109,32|Message]}, _From, State) ->
   case [X || X <- State#state.participants, X =:= ChatId] of
-	[Member] -> 
+	[_] -> 
 	  [raboter:send_message(CID, "Someone said: " ++ Message) || CID <- State#state.participants],
 	  {reply, ok, State};
 	[] ->
@@ -75,9 +75,9 @@ handle_call({command, ChatId, [47,109,32|Message]}, _From, State) ->
 	  {reply, ok, State}
   end;
   
-handle_call({command, ChatId, Text}, _From, State) ->
+handle_call({command, ChatId, _Text}, _From, State) ->
   raboter:send_message(ChatId, "Command not understood. Use /join to join the anonymous chat, /leave to leave it, /m <TEXT> to write to everyone"),
-  {reply, ok, State}.
+  {reply, ok, State};
 
 handle_call(_Request, _From, State) ->
   {reply, ok, State}.
